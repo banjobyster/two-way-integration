@@ -1,6 +1,8 @@
 import mysql.connector
 import os
 from dotenv import load_dotenv
+import json
+from workers.kafka_workers import kafka_event_producer
 
 # Specify the full path to the .env file
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -24,18 +26,13 @@ cursor = None
 def init_db():
     global conn, cursor
     try:
-        # Connect to the MySQL server
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Create the 'zenskar' database if it doesn't exist
         create_db_query = "CREATE DATABASE IF NOT EXISTS zenskar"
         cursor.execute(create_db_query)
-
-        # Switch to the 'zenskar' database
         conn.database = "zenskar"
 
-        # Create the 'customer' table if it doesn't exist
         create_table_query = """
         CREATE TABLE IF NOT EXISTS customer (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -49,24 +46,34 @@ def init_db():
         print(f"Error: {str(e)}")
 
 # CRUD functions
+def read_customer(customer_id):
+    try:
+        query = "SELECT * FROM customer WHERE id = %s"
+        cursor.execute(query, (customer_id,))
+        customer_data = cursor.fetchone()
+        
+        return customer_data
+    except Exception as e:
+        print(f"Error reading customer: {str(e)}")
+        raise Exception("Internal Server Error")
+    
 def create_customer(name, email):
     try:
         query = "INSERT INTO customer (name, email) VALUES (%s, %s)"
         values = (name, email)
         cursor.execute(query, values)
         conn.commit()
+
+        customer_data = {
+            "name": name,
+            "email": email,
+            "action": "create",
+        }
+        json_message = json.dumps(customer_data)
+
+        kafka_event_producer(json_message)
     except Exception as e:
         print(f"Error creating customer: {str(e)}")
-        raise Exception("Internal Server Error")
-
-def read_customer(customer_id):
-    try:
-        print(customer_id, cursor)
-        query = "SELECT * FROM customer WHERE id = %s"
-        cursor.execute(query, (customer_id,))
-        return cursor.fetchone()
-    except Exception as e:
-        print(f"Error reading customer: {str(e)}")
         raise Exception("Internal Server Error")
 
 def update_customer(customer_id, name, email):
@@ -75,15 +82,43 @@ def update_customer(customer_id, name, email):
         values = (name, email, customer_id)
         cursor.execute(query, values)
         conn.commit()
+
+        customer_data = {
+            "id": customer_id,
+            "name": name,
+            "email": email,
+            "action": "update",
+        }
+        json_message = json.dumps(customer_data)
+
+        kafka_event_producer(json_message)
     except Exception as e:
         print(f"Error updating customer: {str(e)}")
         raise Exception("Internal Server Error")
 
 def delete_customer(customer_id):
     try:
+        customer_data = read_customer(customer_id)
+
+        if customer_data is None:
+            raise Exception("Customer not present")
+
         query = "DELETE FROM customer WHERE id = %s"
         cursor.execute(query, (customer_id,))
         conn.commit()
+
+        name = customer_data[1]
+        email = customer_data[2]
+
+        customer_message = {
+            "id": customer_id,
+            "action": "delete",
+            "email": email,
+            "name": name,
+        }
+        json_message = json.dumps(customer_message)
+
+        kafka_event_producer(json_message)
     except Exception as e:
         print(f"Error deleting customer: {str(e)}")
         raise Exception("Internal Server Error")
