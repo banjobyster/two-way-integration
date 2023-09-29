@@ -2,7 +2,7 @@ from kafka import KafkaConsumer, KafkaProducer
 import os
 from dotenv import load_dotenv
 import json
-from integrations.stripe_integration import create_customer_stripe, delete_customer_stripe
+from integrations.stripe.stripe_integration import create_customer_stripe, delete_customer_stripe
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
 load_dotenv(dotenv_path)

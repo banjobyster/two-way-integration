@@ -2,16 +2,17 @@ import os
 import stripe
 from dotenv import load_dotenv
 
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
 load_dotenv(dotenv_path)
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+stripe_signing_key = os.getenv("STRIPE_WEBHOOK_SIGNING_KEY")
 
 def create_customer_stripe(email, name):
     try:
         customer = stripe.Customer.create(
             email=email,
-            name=name
+            name=name,
         )
 
         print(f"Customer created for email: {email}")

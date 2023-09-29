@@ -1,5 +1,7 @@
 from flask import jsonify, request
 from db import create_customer, read_customer, update_customer, delete_customer, get_all_customers
+import json
+from workers.kafka_workers import kafka_event_producer
 
 # api routes configuration
 def configure_apis(app):
@@ -10,7 +12,11 @@ def configure_apis(app):
             data = request.get_json()
             name = data["name"]
             email = data["email"]
-            create_customer(name, email)
+            customer_message = create_customer(name, email)
+
+            json_message = json.dumps(customer_message)
+            kafka_event_producer(json_message)
+
             return jsonify({"message": "Customer added successfully"})
         except Exception as e:
             return jsonify({"error": f"Failed to add customer: {str(e)}"}), 500
@@ -43,7 +49,11 @@ def configure_apis(app):
     @app.route("/customer/<int:customer_id>", methods=["DELETE"])
     def remove_customer(customer_id):
         try:
-            delete_customer(customer_id)
+            customer_message = delete_customer(customer_id)
+
+            json_message = json.dumps(customer_message)
+            kafka_event_producer(json_message)
+            
             return jsonify({"message": "Customer deleted successfully"})
         except Exception as e:
             return jsonify({"message": f"Error deleting customer: {str(e)}"}), 500

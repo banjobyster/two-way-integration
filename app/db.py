@@ -1,8 +1,6 @@
 import mysql.connector
 import os
 from dotenv import load_dotenv
-import json
-from workers.kafka_workers import kafka_event_producer
 
 # Specify the full path to the .env file
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -64,14 +62,13 @@ def create_customer(name, email):
         cursor.execute(query, values)
         conn.commit()
 
-        customer_data = {
+        customer_message = {
             "name": name,
             "email": email,
             "action": "create",
         }
-        json_message = json.dumps(customer_data)
-
-        kafka_event_producer(json_message)
+        
+        return customer_message
     except Exception as e:
         print(f"Error creating customer: {str(e)}")
         raise Exception("Internal Server Error")
@@ -83,15 +80,6 @@ def update_customer(customer_id, name, email):
         cursor.execute(query, values)
         conn.commit()
 
-        customer_data = {
-            "id": customer_id,
-            "name": name,
-            "email": email,
-            "action": "update",
-        }
-        json_message = json.dumps(customer_data)
-
-        kafka_event_producer(json_message)
     except Exception as e:
         print(f"Error updating customer: {str(e)}")
         raise Exception("Internal Server Error")
@@ -116,9 +104,18 @@ def delete_customer(customer_id):
             "email": email,
             "name": name,
         }
-        json_message = json.dumps(customer_message)
+        
+        return customer_message
+    except Exception as e:
+        print(f"Error deleting customer: {str(e)}")
+        raise Exception("Internal Server Error")
 
-        kafka_event_producer(json_message)
+def delete_customer_by_email(email):
+    try:
+        query = "DELETE FROM customer WHERE email = %s"
+        cursor.execute(query, (email,))
+        conn.commit()
+
     except Exception as e:
         print(f"Error deleting customer: {str(e)}")
         raise Exception("Internal Server Error")
