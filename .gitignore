@@ -5,4 +5,4 @@ __pycache__
 product_venv
 
 # configuration and environment files
-config.py
+.env

@@ -1,5 +1,20 @@
 import mysql.connector
-from config import db_config
+import os
+from dotenv import load_dotenv
+
+# Specify the full path to the .env file
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+
+# Load environment variables from the .env file
+load_dotenv(dotenv_path)
+
+# database configuration
+db_config = {
+    "host": os.getenv("DB_HOST", "localhost"),
+    "user": os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD", "root_password"),
+    "port": os.getenv("DB_PORT", "3306"),
+}
 
 # database global connection and cursor
 conn = None
@@ -90,7 +105,6 @@ def get_all_customers():
 # closing database connection when app closes
 def close_db():
     try:
-        print("Database closed")
         conn.close()
     except Exception as e:
         print(f"Error closing database connection: {str(e)}")
