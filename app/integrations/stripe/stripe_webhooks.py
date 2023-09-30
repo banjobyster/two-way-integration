@@ -25,14 +25,11 @@ def stripe_webhook_endpoints(app_webhook):
             customer_id = event['data']['object']['id']
             email = event['data']['object']['email']
             name = event['data']['object']['name']
-            source = event['data']['object']['metadata']['source']
-
-            print(source)
             
             # Handle the customer added event
-            if event['type'] == 'customer.created' and source != 'api':
+            if event['type'] == 'customer.created':
                 create_customer(name, email)
-            elif event['type'] == 'customer.deleted' and source != 'api':
+            elif event['type'] == 'customer.deleted':
                 delete_customer_by_email(email)
 
             return jsonify({'status': 'success'})
