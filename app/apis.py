@@ -40,7 +40,11 @@ def configure_apis(app):
             data = request.get_json()
             name = data["name"]
             email = data["email"]
-            update_customer(customer_id, name, email)
+            customer_message = update_customer(customer_id, name, email)
+
+            json_message = json.dumps(customer_message)
+            kafka_event_producer(json_message)
+
             return jsonify({"message": "Customer updated successfully"})
         except Exception as e:
             return jsonify({"message": f"Error updating customer: {str(e)}"}), 500

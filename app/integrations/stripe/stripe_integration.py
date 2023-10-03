@@ -35,3 +35,17 @@ def delete_customer_stripe(email):
     except stripe.error.StripeError as e:
         print(f"Error deleting customer: {e}")
         return False
+
+def update_customer_stripe(stripe_id, name, email):
+    try:
+        customer = stripe.Customer.retrieve(stripe_id)
+        customer.name = name
+        customer.email = email
+
+        customer.save()
+
+        print(f"Customer updated in Stripe with ID: {stripe_id}")
+        return True
+    except stripe.error.StripeError as e:
+        print(f"Error updating customer in Stripe: {e}")
+        return False

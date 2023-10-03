@@ -39,6 +39,23 @@ def init_db():
         )
         """
         cursor.execute(create_table_query)
+
+        check_column_query = """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_name = 'customer' AND column_name = 'stripe_id'
+        """
+
+        cursor.execute(check_column_query)
+        column_exists = cursor.fetchone()[0]
+
+        if not column_exists:
+            alter_table_query = """
+                ALTER TABLE customer
+                ADD COLUMN stripe_id VARCHAR(255) NULL
+            """
+            cursor.execute(alter_table_query)
+
         conn.commit()
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -55,31 +72,47 @@ def read_customer(customer_id):
         print(f"Error reading customer: {str(e)}")
         raise Exception("Internal Server Error")
     
-def create_customer(name, email):
+def create_customer(name, email, stripe_id=None):
     try:
-        query = "INSERT INTO customer (name, email) VALUES (%s, %s)"
-        values = (name, email)
+        query = "INSERT INTO customer (name, email, stripe_id) VALUES (%s, %s, %s)"
+        values = (name, email, stripe_id)
         cursor.execute(query, values)
         conn.commit()
 
         customer_message = {
             "name": name,
             "email": email,
+            "stripe_id": stripe_id,
             "action": "create",
         }
-        
+
         return customer_message
     except Exception as e:
         print(f"Error creating customer: {str(e)}")
         raise Exception("Internal Server Error")
 
-def update_customer(customer_id, name, email):
+def update_customer(customer_id, name, email, stripe_id=None):
     try:
-        query = "UPDATE customer SET name = %s, email = %s WHERE id = %s"
-        values = (name, email, customer_id)
+        if stripe_id is None:
+            customer_data = read_customer(customer_id)
+            if customer_data is None:
+                raise Exception("Customer not present")
+            
+            stripe_id = customer_data[3]
+            
+        query = "UPDATE customer SET name = %s, email = %s, stripe_id = %s WHERE id = %s"
+        values = (name, email, stripe_id, customer_id)
         cursor.execute(query, values)
         conn.commit()
 
+        customer_message = {
+            "name": name,
+            "email": email,
+            "stripe_id": stripe_id,
+            "action": "update",
+        }
+
+        return customer_message
     except Exception as e:
         print(f"Error updating customer: {str(e)}")
         raise Exception("Internal Server Error")
@@ -97,11 +130,13 @@ def delete_customer(customer_id):
 
         name = customer_data[1]
         email = customer_data[2]
+        stripe_id = customer_data[3]
 
         customer_message = {
             "id": customer_id,
             "action": "delete",
             "email": email,
+            "stripe_id": stripe_id,
             "name": name,
         }
         
@@ -120,6 +155,28 @@ def delete_customer_by_email(email):
         print(f"Error deleting customer: {str(e)}")
         raise Exception("Internal Server Error")
 
+def update_customer_by_email(name, email, stripe_id=None):
+    try:
+        query = "UPDATE customer SET name = %s, email = %s, stripe_id = %s WHERE email = %s"
+        values = (name, email, stripe_id, email)
+        cursor.execute(query, values)
+        conn.commit()
+
+    except Exception as e:
+        print(f"Error updating customer: {str(e)}")
+        raise Exception("Internal Server Error")
+
+def update_customer_by_stripe_id(name, email, stripe_id):
+    try:
+        query = "UPDATE customer SET name = %s, email = %s, stripe_id = %s WHERE stripe_id = %s"
+        values = (name, email, stripe_id, stripe_id)
+        cursor.execute(query, values)
+        conn.commit()
+
+    except Exception as e:
+        print(f"Error updating customer: {str(e)}")
+        raise Exception("Internal Server Error")
+
 # Get all customers
 def get_all_customers():
     try:
@@ -127,7 +184,7 @@ def get_all_customers():
         cursor.execute(query)
         customers = cursor.fetchall()
 
-        customer_list = [{"id": row[0], "name": row[1], "email": row[2]} for row in customers]
+        customer_list = [{"id": row[0], "name": row[1], "email": row[2], "stripe_id": row[3]} for row in customers]
 
         return customer_list
     except Exception as e:

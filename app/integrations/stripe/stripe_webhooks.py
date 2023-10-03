@@ -2,7 +2,7 @@ import os
 import stripe
 from dotenv import load_dotenv
 from flask import request, jsonify
-from db import create_customer, delete_customer_by_email
+from db import create_customer, delete_customer_by_email, update_customer_by_email, update_customer_by_stripe_id
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
 load_dotenv(dotenv_path)
@@ -22,15 +22,21 @@ def stripe_webhook_endpoints(app_webhook):
                 request.data, sig_header, stripe_signing_key
             )
 
-            customer_id = event['data']['object']['id']
+            stripe_id = event['data']['object']['id']
             email = event['data']['object']['email']
             name = event['data']['object']['name']
             
             # Handle the customer added event
             if event['type'] == 'customer.created':
-                create_customer(name, email)
+                try:
+                    create_customer(name, email)
+                except Exception as e:
+                    print("Customer already exists!")
+                update_customer_by_email(name, email, stripe_id)
             elif event['type'] == 'customer.deleted':
                 delete_customer_by_email(email)
+            elif event['type'] == 'customer.updated':
+                update_customer_by_stripe_id(name, email, stripe_id)
 
             return jsonify({'status': 'success'})
         except Exception as e:
